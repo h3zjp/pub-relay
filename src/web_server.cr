@@ -58,6 +58,8 @@ class PubRelay::WebServer
         serve_stats(context)
       when {"POST", "/inbox"}
         handle_inbox(context)
+      when {"GET", "/list"}
+        instance_list(context)
       else
         call_next(context)
       end
@@ -137,6 +139,21 @@ class PubRelay::WebServer
 
   private def handle_inbox(context)
     InboxHandler.new(context, @domain, @subscription_manager).handle
+  end
+
+  private def instance_list(ctx)
+    instances = [] of String
+    @@redis.keys("subscription:*").each do |key|
+      key = key.as(String)
+      domain = key.lchop("subscription:")
+      instances.push("https://#{domain}")
+    end
+
+    ctx.response.content_type = "application/json"
+    {
+      last_updated: Time.now.epoch,
+      instances: instances
+    }.to_json(ctx.response)
   end
 
   private def route_url(path)

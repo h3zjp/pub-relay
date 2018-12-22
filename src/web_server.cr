@@ -144,9 +144,9 @@ class PubRelay::WebServer
   private def instance_list(ctx)
     redis = Redis::PooledClient.new(url: ENV["REDIS_URL"])
     instances = [] of String
-    redis.keys("subscription:*").each do |key|
+    redis.keys("relay:subscription:*").each do |key|
       key = key.as(String)
-      domain = key.lchop("subscription:")
+      domain = key.lchop("relay:subscription:")
       instances.push("https://#{domain}")
     end
 

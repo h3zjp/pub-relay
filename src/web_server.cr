@@ -152,7 +152,7 @@ class PubRelay::WebServer
 
     ctx.response.content_type = "application/json"
     {
-      last_updated: Time.now.epoch,
+      last_updated: Time.now,
       instances: instances
     }.to_json(ctx.response)
   end

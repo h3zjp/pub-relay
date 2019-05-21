@@ -31,21 +31,25 @@ Requirements:
 ## Installation
 
 ※ Require [Crystal](https://crystal-lang.org/) (≦0.27.2), [Redis](https://redis.io/)
-1. ```  
+1. user add
+   ```  
    useradd pub-relay  
    sudo su - pub-relay  
    git clone https://github.com/h3zjp/pub-relay.git  
    cd pub-relay
    ```
-1. ```
+1. build
+   ```
    shards update
    shards build --release
    ```
-1. ```
+1. generate key
+   ```
    openssl genrsa 2024 > ~/.ssh/actor.pem
    chmod 600 ~/.ssh/actor.pem
    ```
-1. ```vi /etc/systemd/system/pub-relay.service```
+1. systemctl add  
+   ```vi /etc/systemd/system/pub-relay.service```
 
    ```
    [Unit]
@@ -68,7 +72,8 @@ Requirements:
    [Install]
    WantedBy=multi-user.target
    ```
-1. ```
+1. systemctl start
+   ```
    systemctl daemon-reload
    systemctl start pub-relay
    systemctl enable pub-relay

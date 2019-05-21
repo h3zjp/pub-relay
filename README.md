@@ -10,7 +10,9 @@ forked by [mastodon / pub-relay · GitLab](https://source.joinmastodon.org/masto
 Endpoints:
 
 - `GET /actor`
+- `GET /stats`
 - `POST /inbox`
+- `GET /list`
 - `GET /.well-known/webfinger`
 
 Operations:
@@ -48,7 +50,8 @@ Requirements:
    openssl genrsa 2024 > ~/.ssh/actor.pem
    chmod 600 ~/.ssh/actor.pem
    ```
-1. systemctl add  
+1. systemctl add
+
    ```vi /etc/systemd/system/pub-relay.service```
 
    ```

@@ -3,6 +3,8 @@ pub-relay
 
 ...is a service-type ActivityPub actor that will re-broadcast anything sent to it to anyone who subscribes to it.
 
+forked by [mastodon / pub-relay · GitLab](https://source.joinmastodon.org/mastodon/pub-relay)
+
 ![](https://i.imgur.com/5q8db54.jpg)
 
 Endpoints:
@@ -28,7 +30,50 @@ Requirements:
 
 ## Installation
 
-Download the binaries.
+※ Require [Crystal](https://crystal-lang.org/) (≦0.27.2), [Redis](https://redis.io/)
+1. ```  
+   useradd pub-relay  
+   sudo su - pub-relay  
+   git clone https://github.com/h3zjp/pub-relay.git  
+   cd pub-relay
+   ```
+1. ```
+   shards update
+   shards build --release
+   ```
+1. ```
+   openssl genrsa 2024 > ~/.ssh/actor.pem
+   chmod 600 ~/.ssh/actor.pem
+   ```
+1. ```vi /etc/systemd/system/pub-relay.service```
+
+   ```
+   [Unit]
+   Description=pub-relay Server
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=pub-relay
+   WorkingDirectory=/home/pub-relay/pub-relay
+   Environment="RELAY_DOMAIN=Domain (Example: pub-relay.hama3.net)"
+   Environment="RELAY_HOST=Host (Default: localhost)"
+   Environment="RELAY_PORT=Port (Default: 8085)"
+   Environment="RELAY_PKEY_PATH=/home/pub-relay/.ssh/actor.pem"
+   Environment="REDIS_URL=redis://Server:Port/DB (Example: 127.0.0.1:6379/0)"
+   ExecStart=/home/pub-relay/pub-relay/bin/pub-relay
+   TimeoutSec=20
+   Restart=always
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+1. ```
+   systemctl daemon-reload
+   systemctl start pub-relay
+   systemctl enable pub-relay
+   ```
+1. Enjoy!
 
 ## Usage
 

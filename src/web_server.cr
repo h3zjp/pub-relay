@@ -18,11 +18,12 @@ class PubRelay::WebServer
 
   def initialize(
     @domain : String,
-    @private_key : OpenSSL::RSA,
+    @private_key : OpenSSL::PKey::RSA,
     @subscription_manager : SubscriptionManager,
     @bindhost : String,
     @port : Int32,
-    @stats : Stats
+    @stats : Stats,
+    @redis : Redis::PooledClient
   )
   end
 
@@ -52,6 +53,10 @@ class PubRelay::WebServer
       case {context.request.method, context.request.path}
       when {"GET", "/.well-known/webfinger"}
         serve_webfinger(context)
+      when {"GET", "/.well-known/nodeinfo"}
+        serve_nodeinfo_wellknown(context)
+      when {"GET", "/nodeinfo/2.0"}
+        serve_nodeinfo_2_0(context)
       when {"GET", "/actor"}
         serve_actor(context)
       when {"GET", "/stats"}
@@ -114,6 +119,44 @@ class PubRelay::WebServer
     }.to_json(ctx.response)
   end
 
+  private def serve_nodeinfo_wellknown(ctx)
+    ctx.response.content_type = "application/json"
+    {
+      links:   {
+        {
+          rel:  "http://nodeinfo.diaspora.software/ns/schema/2.0",
+          href: route_url("/nodeinfo/2.0"),
+        },
+      },
+    }.to_json(ctx.response)
+  end
+
+  private def serve_nodeinfo_2_0(ctx)
+    ctx.response.content_type = "application/json; profile=http://nodeinfo.diaspora.software/ns/schema/2.0"
+    {
+      openRegistrations: true,
+      protocols:         ["activitypub"],
+      services:          {
+        inbound:  [] of String,
+        outbound: [] of String,
+      },
+      software: {
+        name:    "pub-relay",
+        version: "#{PubRelay::VERSION}",
+      },
+      usage: {
+        localPosts: 0,
+        users:      {
+          total: 1,
+        },
+      },
+      version: "2.0",
+      metadata: {
+        peers: @subscription_manager.peers
+      }
+    }.to_json(ctx.response)
+  end
+
   private def serve_actor(ctx)
     ctx.response.content_type = "application/activity+json"
     {
@@ -138,7 +181,7 @@ class PubRelay::WebServer
   end
 
   private def handle_inbox(context)
-    InboxHandler.new(context, @domain, @subscription_manager).handle
+    InboxHandler.new(context, @domain, @subscription_manager, @redis).handle
   end
 
   private def instance_list(ctx)

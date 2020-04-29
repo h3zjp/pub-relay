@@ -11,8 +11,9 @@ bindhost = ENV["RELAY_HOST"]? || "localhost"
 port = (ENV["RELAY_PORT"]? || 8085).to_i
 
 private_key_path = ENV["RELAY_PKEY_PATH"]
-private_key = OpenSSL::RSA.new(File.read(private_key_path))
+private_key = OpenSSL::PKey::RSA.new(File.read(private_key_path))
 
+STDOUT.sync = true if ENV["RELAY_DEBUG"]?
 Earl::Logger.level = Earl::Logger::Severity::DEBUG if ENV["RELAY_DEBUG"]?
 
 relay = PubRelay.new(domain, private_key, redis, bindhost, port)

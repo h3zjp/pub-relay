@@ -1,5 +1,5 @@
 struct PubRelay::WebServer::HTTPSignature
-  def initialize(@context : HTTP::Server::Context)
+  def initialize(@context : HTTP::Server::Context, @redis : Redis::PooledClient)
   end
 
   # Verify HTTP signatures according to https://tools.ietf.org/html/draft-cavage-http-signatures-06.
@@ -29,7 +29,7 @@ struct PubRelay::WebServer::HTTPSignature
 
     signed_string = build_signed_string(body, signature_params["headers"]?)
 
-    public_key = OpenSSL::RSA.new(actor.public_key.public_key_pem, is_private: false)
+    public_key = OpenSSL::PKey::RSA.new(actor.public_key.public_key_pem, is_private: false)
 
     begin
       signature = Base64.decode(signature)
@@ -92,15 +92,23 @@ struct PubRelay::WebServer::HTTPSignature
     error(400, "Invalid JSON from fetching", "#{key_id.inspect}: #{ex.inspect_with_backtrace}")
   end
 
-  private def cached_fetch_json(url, json_class : JsonType.class) : JsonType forall JsonType
-    # TODO: actually cache this
-    headers = HTTP::Headers{"Accept" => "application/activity+json, application/ld+json"}
-    # TODO use HTTP::Client.new and set read timeout
-    response = HTTP::Client.get(url, headers: headers)
-    unless response.status_code == 200
-      error(400, "Got non-200 response from fetching", url.inspect)
+  CACHE_EXPIRE_SECOND = 2.day.to_i;
+
+  private def cached_fetch_json(url, json_class : JsonType.class, use_cache = true) : JsonType forall JsonType
+    remote_actor_body = use_cache ? @redis.get(key_for(url)) : nil
+    if remote_actor_body
+      @redis.expire(key_for(url), CACHE_EXPIRE_SECOND)
+    else
+      headers = HTTP::Headers{"Accept" => "application/activity+json, application/ld+json"}
+      # TODO use HTTP::Client.new and set read timeout
+      response = HTTP::Client.get(url, headers: headers)
+      unless response.status_code == 200
+        error(400, "Got non-200 response from fetching", url.inspect)
+      end
+      remote_actor_body = response.body
+      @redis.setex(key_for(url), CACHE_EXPIRE_SECOND, remote_actor_body)
     end
-    JsonType.from_json(response.body)
+    JsonType.from_json(remote_actor_body)
   end
 
   private def build_signed_string(body, signed_headers)
@@ -124,6 +132,10 @@ struct PubRelay::WebServer::HTTPSignature
     end
   end
 
+  private def key_for(url)
+    "relay:remote_actor:cache:#{url}"
+  end
+
   private def request
     @context.request
   end
@@ -140,6 +152,9 @@ struct PubRelay::WebServer::HTTPSignature
     property public_key : Key
     getter endpoints : Endpoints?
     getter inbox : String
+    getter type : String = ""
+    getter preferredUsername : String?
+    getter name : String?
 
     def initialize(@id, @public_key, @endpoints, @inbox)
     end
@@ -150,6 +165,14 @@ struct PubRelay::WebServer::HTTPSignature
 
     def domain
       URI::Punycode.to_ascii(URI.parse(id).host.not_nil!.strip.downcase)
+    end
+
+    def username
+      preferredUsername || File.basename(URI.parse(id).path.not_nil!.strip.downcase)
+    end
+
+    def pleroma_relay?
+      name == "Pleroma" && type == "Application" && username == "relay"
     end
   end
 
